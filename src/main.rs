@@ -4,6 +4,7 @@ use std::io::{BufReader, BufWriter};
 use std::io;
 use std::fs::{File, OpenOptions};
 use clap::{Parser, Subcommand};
+use csv::{Reader, StringRecord};
 
 #[derive(Parser)]
 struct Cli {
@@ -40,9 +41,15 @@ enum UserAction {
 }
 
 fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
-    let file = File::open(input_path)?;
-    let buf_reader = BufReader::new(file);
-    let mut reader = csv::Reader::from_reader(buf_reader);
+    // let file = File::open(input_path)?;
+    // let buf_reader = BufReader::new(file);
+    let mut reader = Reader::from_path(input_path)?;
+
+    let headers = reader.headers()?;
+    if !headers.iter().any(|h| h == "email") {
+        println!("asd: {:?}", &headers);
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "CSV must contain 'email' column"));
+    };
 
     let records: Vec<Person> = reader.deserialize().collect::<Result<_,_>>()?;
 
