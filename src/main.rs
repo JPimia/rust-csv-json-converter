@@ -44,13 +44,14 @@ fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
     // let file = File::open(input_path)?;
     // let buf_reader = BufReader::new(file);
     let mut reader = Reader::from_path(input_path)?;
-
     let headers = reader.headers()?;
-    if !headers.iter().any(|h| h == "email") {
-        println!("asd: {:?}", &headers);
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "CSV must contain 'email' column"));
-    };
 
+    let required_columns = vec!["name", "age", "email"];
+    for &column in required_columns.iter() {
+        if !headers.iter().any(|col| col == column) {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("CSV is missing column: {}", column)));
+        }
+    }
     let records: Vec<Person> = reader.deserialize().collect::<Result<_,_>>()?;
 
     let json_file = File::create(output_path)?;
