@@ -54,7 +54,33 @@ fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("CSV is missing column: {}", column)));
         }
     }
-    let records: Vec<Person> = reader.deserialize().collect::<Result<_,_>>()?;
+    let records: Vec<Person> = reader.deserialize().map(
+        |result| {
+            let person: Person = result?;
+            if person.age == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Person age must be greater than 0",
+                ))
+            } else if person.name.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Name cannot be empty",
+                ))
+            } else if person.email.is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Email cannot be empty",
+                ))
+            } else if person.email.contains("@") {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Invalid email in records: {}", person.email),
+                ))
+            }
+            Ok(person)
+        }
+    ).collect::<Result<_,_>>()?;
 
     let json_file = File::create(output_path)?;
     let buf_writer = BufWriter::new(json_file);
