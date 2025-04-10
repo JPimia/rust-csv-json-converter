@@ -1,10 +1,10 @@
 use clap::error::Result;
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, BufWriter};
-use std::io;
+use std::{fs, io};
 use std::fs::{File, OpenOptions};
 use clap::{Parser, Subcommand};
-use csv::{Reader, StringRecord};
+use csv::Reader;
 
 #[derive(Parser)]
 struct Cli {
@@ -41,8 +41,10 @@ enum UserAction {
 }
 
 fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
-    // let file = File::open(input_path)?;
-    // let buf_reader = BufReader::new(file);
+    if fs::metadata(&input_path)?.len() == u64::MIN {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "Input CSV file is empty."))
+    }
+
     let mut reader = Reader::from_path(input_path)?;
     let headers = reader.headers()?;
 
@@ -88,23 +90,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             csv_to_json(input, output)?;
         }
     }
-
-    // match args[1].as_str() {
-    //     "user" => {
-    //         match &args[2].as_str() {
-    //             &"create" => {
-    //                 println!("Creating user!")
-    //             },
-    //             _ => {
-    //                 println!("other command");
-    //             }
-    //         }
-    //     },
-    //     _ => {
-    //         println!("other commands");
-    //     }
-    // }
-
-    // csv_to_json(args.input, args.output)?;
     Ok(())
 }
