@@ -1,5 +1,6 @@
 use clap::error::Result;
 use serde::{Deserialize, Serialize};
+use serde::de::Error as DeError;
 use std::io::{BufReader, BufWriter};
 use std::{fs, io};
 use std::fs::{File, OpenOptions};
@@ -24,11 +25,34 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 struct Person {
     name: String,
     age: u32,
     email: String
+}
+
+impl<'de> Deserialize<'de> for Person {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de> {
+        #[derive(Deserialize)]
+        struct RawPerson {
+            name: String,
+            age: u32,
+            email: String
+        }
+        let raw = RawPerson::deserialize(deserializer)?;
+
+        let person = match (raw.name.is_empty(), raw.age == u32::MIN, raw.email.is_empty(), !raw.email.contains("@")) {
+            (true, _, _, _) => return Err(DeError::custom("Name cannot be empty")),
+            (_, true, _, _) => return Err(DeError::custom("Age must be greater than 0")),
+            (_, _, true, _) => return Err(DeError::custom("Email cannot be empty")),
+            (_, _, _, true) => return Err(DeError::custom("Email must contain '@'")),
+            _ => Person { name: raw.name, age: raw.age, email: raw.email }
+        };
+        Ok(person)
+    }
 }
 
 #[derive(Subcommand, Debug)]
@@ -54,33 +78,8 @@ fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, format!("CSV is missing column: {}", column)));
         }
     }
-    let records: Vec<Person> = reader.deserialize().map(
-        |result| {
-            let person: Person = result?;
-            if person.age == 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Person age must be greater than 0",
-                ))
-            } else if person.name.is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Name cannot be empty",
-                ))
-            } else if person.email.is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Email cannot be empty",
-                ))
-            } else if person.email.contains("@") {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("Invalid email in records: {}", person.email),
-                ))
-            }
-            Ok(person)
-        }
-    ).collect::<Result<_,_>>()?;
+
+    let records: Vec<Person> = reader.deserialize().collect::<Result<_,_>>()?;
 
     let json_file = File::create(output_path)?;
     let buf_writer = BufWriter::new(json_file);
