@@ -75,7 +75,7 @@ fn csv_to_json(input_path: String, output_path: String) -> io::Result<()> {
     let required_columns = vec!["name", "age", "email"];
     for &column in required_columns.iter() {
         if !headers.iter().any(|col| col == column) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("CSV is missing column: {}", column)));
+            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("CSV is missing a column: {}", column)));
         }
     }
 
